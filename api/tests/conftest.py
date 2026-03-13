@@ -55,6 +55,36 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
 
 
 @pytest_asyncio.fixture
+async def auth_token(client: AsyncClient) -> str:
+    """Create a seed admin user directly in DB and return a JWT token."""
+    from api.database.models import User
+    from passlib.context import CryptContext
+
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+    async with test_session_factory() as session:
+        user = User(
+            username="seedadmin",
+            email="seed@test.com",
+            hashed_password=pwd_context.hash("securepassword123"),
+            role="admin",
+        )
+        session.add(user)
+        await session.commit()
+
+    response = await client.post(
+        "/auth/token",
+        json={"username": "seedadmin", "password": "securepassword123"},
+    )
+    return response.json()["access_token"]
+
+
+@pytest_asyncio.fixture
+async def auth_headers(auth_token: str) -> dict:
+    return {"Authorization": f"Bearer {auth_token}"}
+
+
+@pytest_asyncio.fixture
 async def sample_policy(client: AsyncClient) -> dict:
     response = await client.post(
         "/policies",

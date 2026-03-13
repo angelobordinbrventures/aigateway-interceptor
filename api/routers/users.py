@@ -90,6 +90,7 @@ async def login(
 @router.post("/users", response_model=UserResponse, status_code=201)
 async def create_user(
     payload: UserCreate,
+    current_user: User = Depends(require_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     # Check uniqueness
@@ -113,6 +114,7 @@ async def create_user(
 
 @router.get("/users", response_model=List[UserResponse])
 async def list_users(
+    current_user: User = Depends(require_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(User).order_by(User.created_at.desc()))

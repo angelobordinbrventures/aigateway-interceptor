@@ -112,18 +112,37 @@ rm -f "$SERVER_CSR" "$SERVER_EXT" "$CERT_DIR/aigateway-ca.srl"
 chmod 600 "$CA_KEY" "$SERVER_KEY"
 chmod 644 "$CA_CRT" "$SERVER_CRT"
 
+# -------------------------------------------------------
+# Step 6: Generate mitmproxy-compatible CA files
+# -------------------------------------------------------
+MITM_CA_PEM="$CERT_DIR/mitmproxy-ca.pem"
+MITM_CA_CERT="$CERT_DIR/mitmproxy-ca-cert.pem"
+
+echo "[6/6] Generating mitmproxy-compatible CA files..."
+
+# mitmproxy-ca.pem: combined private key + certificate
+cat "$CA_KEY" "$CA_CRT" > "$MITM_CA_PEM"
+chmod 600 "$MITM_CA_PEM"
+
+# mitmproxy-ca-cert.pem: certificate only (for client distribution)
+cp "$CA_CRT" "$MITM_CA_CERT"
+chmod 644 "$MITM_CA_CERT"
+
 echo ""
 echo "============================================="
 echo " Certificates generated successfully!"
 echo "============================================="
 echo ""
-echo "  CA Key:         $CA_KEY"
-echo "  CA Certificate: $CA_CRT"
-echo "  Server Key:     $SERVER_KEY"
-echo "  Server Cert:    $SERVER_CRT"
+echo "  CA Key:              $CA_KEY"
+echo "  CA Certificate:      $CA_CRT"
+echo "  Server Key:          $SERVER_KEY"
+echo "  Server Cert:         $SERVER_CRT"
+echo "  mitmproxy CA (pem):  $MITM_CA_PEM"
+echo "  mitmproxy CA (cert): $MITM_CA_CERT"
 echo ""
 echo "Next steps:"
 echo "  1. Distribute '$CA_CRT' to client machines"
 echo "  2. Run 'scripts/install-ca-cert.sh' on each client"
 echo "  3. Configure proxy to use server.key and server.crt"
+echo "  4. mitmproxy-compatible files are ready at $CERT_DIR"
 echo ""

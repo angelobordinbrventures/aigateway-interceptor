@@ -96,4 +96,4 @@ INSERT INTO policies (name, description, finding_categories, action, priority) V
 -- Password: admin123 - CHANGE IN PRODUCTION
 -- =============================================================================
 INSERT INTO users (username, email, hashed_password, role) VALUES
-('admin', 'admin@aigateway.local', '$2b$12$LJ3m4ys3Lk0TSwHgFMwzxu8GpGxCbPODP.Ab3JhEHfTvVIqLr2bXi', 'admin');
+('admin', 'admin@aigateway.local', '$2b$12$dtyN0w6U8F.MOQgtZGODPugg84LZWh0KtKJFHNWf8kmMUlZ9yDq5W', 'admin');

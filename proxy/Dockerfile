@@ -25,9 +25,15 @@ COPY --from=base /usr/local/bin /usr/local/bin
 
 COPY . .
 
+# Ensure entrypoint is executable
+RUN chmod +x /app/entrypoint.sh
+
+# Create mitmproxy confdir for CA certificates
+RUN mkdir -p /home/mitmproxy/.mitmproxy
+
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8080 8443
 
-CMD ["mitmdump", "--listen-host", "0.0.0.0", "--listen-port", "8080", "-s", "main.py"]
+ENTRYPOINT ["/app/entrypoint.sh"]

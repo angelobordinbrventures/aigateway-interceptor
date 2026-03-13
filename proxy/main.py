@@ -147,6 +147,34 @@ class AIGatewayAddon:
             len(findings),
         )
 
+    def response(self, flow: http.HTTPFlow) -> None:
+        """Process intercepted HTTP responses.
+
+        Called by mitmproxy for each response passing through the proxy.
+        For HTTPS flows, mitmproxy handles TLS termination and presents
+        decrypted content to this handler, just like for HTTP flows.
+        """
+        host = flow.request.pretty_host
+
+        if not is_ai_target(host):
+            return
+
+        # If the request was anonymized, store the session ID in the response
+        # header so clients can correlate with de-anonymization.
+        session_id = flow.metadata.get("anonymization_session_id")
+        if session_id and flow.response:
+            flow.response.headers["X-AIGateway-Session-ID"] = session_id
+
+        # Log response metadata
+        if flow.response:
+            logger.info(
+                "Response from %s: %d (%s) - scheme=%s",
+                host,
+                flow.response.status_code,
+                flow.request.path,
+                flow.request.scheme,
+            )
+
     def _alert(self, flow: http.HTTPFlow, findings: list) -> None:
         """Send an alert about detected findings but allow the request."""
         categories = list({f.category for f in findings})

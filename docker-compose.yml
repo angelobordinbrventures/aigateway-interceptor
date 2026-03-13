@@ -22,12 +22,18 @@ services:
     container_name: aigateway-proxy
     ports:
       - "8080:8080"
+      - "8443:8443"
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql://aigateway:secret@postgres:5432/aigateway}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - DLP_MODE=${DLP_MODE:-anonymize}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - AI_PROVIDER_DOMAINS=${AI_PROVIDER_DOMAINS:-api.openai.com,api.anthropic.com,generativelanguage.googleapis.com,api.cohere.ai,api.mistral.ai}
+      - SSL_INSECURE=${SSL_INSECURE:-true}
+      - LISTEN_HOST=0.0.0.0
+      - LISTEN_PORT=8080
+      - MITMPROXY_CONFDIR=/home/mitmproxy/.mitmproxy
+      - CERTS_DIR=/certs
     volumes:
       - ./infrastructure/certs:/certs:ro
     depends_on:

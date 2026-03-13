@@ -162,7 +162,7 @@ async def test_stats_overview(client: AsyncClient, sample_audit_log: dict):
 
 
 @pytest.mark.asyncio
-async def test_create_user(client: AsyncClient):
+async def test_create_user(client: AsyncClient, auth_headers: dict):
     response = await client.post(
         "/users",
         json={
@@ -171,6 +171,7 @@ async def test_create_user(client: AsyncClient):
             "password": "securepassword123",
             "role": "admin",
         },
+        headers=auth_headers,
     )
     assert response.status_code == 201
     data = response.json()
@@ -185,8 +186,22 @@ async def test_create_user(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_login_and_me(client: AsyncClient):
-    # Create user
+async def test_create_user_requires_auth(client: AsyncClient):
+    response = await client.post(
+        "/users",
+        json={
+            "username": "noauth",
+            "email": "noauth@test.com",
+            "password": "securepassword123",
+            "role": "viewer",
+        },
+    )
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_login_and_me(client: AsyncClient, auth_headers: dict):
+    # Create user (now requires auth)
     await client.post(
         "/users",
         json={
@@ -195,6 +210,7 @@ async def test_login_and_me(client: AsyncClient):
             "password": "securepassword123",
             "role": "viewer",
         },
+        headers=auth_headers,
     )
 
     # Login
@@ -215,8 +231,8 @@ async def test_login_and_me(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_list_users(client: AsyncClient):
-    # Create a user first
+async def test_list_users(client: AsyncClient, auth_headers: dict):
+    # Create a user first (now requires auth)
     await client.post(
         "/users",
         json={
@@ -225,13 +241,20 @@ async def test_list_users(client: AsyncClient):
             "password": "securepassword123",
             "role": "viewer",
         },
+        headers=auth_headers,
     )
 
-    response = await client.get("/users")
+    response = await client.get("/users", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
     assert len(data) >= 1
+
+
+@pytest.mark.asyncio
+async def test_list_users_requires_auth(client: AsyncClient):
+    response = await client.get("/users")
+    assert response.status_code == 401
 
 
 @pytest.mark.asyncio

@@ -158,4 +158,61 @@ export async function togglePolicy(id: string): Promise<Policy> {
   return data
 }
 
+// --- Settings ---
+
+export interface SensitivePattern {
+  id: string
+  name: string
+  category: string
+  pattern: string
+  is_regex: boolean
+  severity: string
+  enabled: boolean
+}
+
+export interface PatternCreate {
+  name: string
+  category: string
+  pattern: string
+  is_regex: boolean
+  severity: string
+  enabled: boolean
+}
+
+export async function getRetention(): Promise<{ retention_days: number }> {
+  const { data } = await api.get('/settings/retention')
+  return data
+}
+
+export async function updateRetention(days: number): Promise<{ retention_days: number }> {
+  const { data } = await api.put('/settings/retention', { retention_days: days })
+  return data
+}
+
+export async function getPatterns(): Promise<SensitivePattern[]> {
+  const { data } = await api.get('/settings/patterns')
+  return data
+}
+
+export async function createPattern(pattern: PatternCreate): Promise<SensitivePattern> {
+  const { data } = await api.post('/settings/patterns', pattern)
+  return data
+}
+
+export async function deletePattern(id: string): Promise<void> {
+  await api.delete(`/settings/patterns/${id}`)
+}
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('username')
+      window.location.href = '/login'
+    }
+    return Promise.reject(error)
+  }
+)
+
 export default api

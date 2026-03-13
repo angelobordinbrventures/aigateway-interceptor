@@ -1,22 +1,89 @@
 import { useState } from 'react'
-import { Download, Plus, X, Monitor, Apple, Terminal } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Download, Plus, Trash2, Monitor, Apple, Terminal, Loader2, CheckCircle } from 'lucide-react'
+import {
+  getRetention,
+  updateRetention,
+  getPatterns,
+  createPattern,
+  deletePattern,
+  type PatternCreate,
+} from '../api/client'
+
+const CATEGORIES = [
+  'PII',
+  'CREDENTIALS',
+  'SECRETS',
+  'SOURCE_CODE',
+  'FINANCIAL',
+  'HEALTH',
+  'CUSTOM',
+] as const
 
 export default function SettingsPage() {
-  const [retentionDays, setRetentionDays] = useState(90)
-  const [patterns, setPatterns] = useState<string[]>([])
-  const [newPattern, setNewPattern] = useState('')
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'windows' | 'mac' | 'linux'>('mac')
+  const [retentionInput, setRetentionInput] = useState<number | null>(null)
+  const [retentionSaved, setRetentionSaved] = useState(false)
 
-  function addPattern() {
-    const trimmed = newPattern.trim()
-    if (trimmed && !patterns.includes(trimmed)) {
-      setPatterns([...patterns, trimmed])
-      setNewPattern('')
-    }
-  }
+  // Pattern form state
+  const [patternName, setPatternName] = useState('')
+  const [patternCategory, setPatternCategory] = useState<string>('CUSTOM')
+  const [patternRegex, setPatternRegex] = useState('')
 
-  function removePattern(p: string) {
-    setPatterns(patterns.filter((v) => v !== p))
+  // --- Retention ---
+  const { data: retentionData, isLoading: retentionLoading } = useQuery({
+    queryKey: ['retention'],
+    queryFn: getRetention,
+  })
+
+  const retentionDays = retentionInput ?? retentionData?.retention_days ?? 90
+
+  const retentionMutation = useMutation({
+    mutationFn: (days: number) => updateRetention(days),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['retention'] })
+      setRetentionSaved(true)
+      setTimeout(() => setRetentionSaved(false), 2000)
+    },
+  })
+
+  // --- Patterns ---
+  const { data: patterns = [], isLoading: patternsLoading } = useQuery({
+    queryKey: ['patterns'],
+    queryFn: getPatterns,
+  })
+
+  const createMutation = useMutation({
+    mutationFn: (p: PatternCreate) => createPattern(p),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patterns'] })
+      setPatternName('')
+      setPatternRegex('')
+      setPatternCategory('CUSTOM')
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deletePattern(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patterns'] })
+    },
+  })
+
+  function handleAddPattern() {
+    const name = patternName.trim()
+    const regex = patternRegex.trim()
+    if (!name || !regex) return
+
+    createMutation.mutate({
+      name,
+      category: patternCategory,
+      pattern: regex,
+      is_regex: true,
+      severity: 'medium',
+      enabled: true,
+    })
   }
 
   const instructions: Record<string, string> = {
@@ -55,19 +122,38 @@ export default function SettingsPage() {
         <h2 className="text-base font-semibold text-white mb-4">Log Retention</h2>
         <div className="flex items-center gap-4">
           <label className="text-sm text-slate-400">Retain logs for</label>
-          <input
-            type="number"
-            min={1}
-            max={365}
-            value={retentionDays}
-            onChange={(e) => setRetentionDays(Number(e.target.value))}
-            className="w-24 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
-          />
+          {retentionLoading ? (
+            <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
+          ) : (
+            <input
+              type="number"
+              min={1}
+              max={365}
+              value={retentionDays}
+              onChange={(e) => setRetentionInput(Number(e.target.value))}
+              className="w-24 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+            />
+          )}
           <span className="text-sm text-slate-400">days</span>
-          <button className="ml-4 px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors">
-            Save
+          <button
+            onClick={() => retentionMutation.mutate(retentionDays)}
+            disabled={retentionMutation.isPending}
+            className="ml-4 px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center gap-2"
+          >
+            {retentionMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+            {retentionSaved ? (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                Saved
+              </>
+            ) : (
+              'Save'
+            )}
           </button>
         </div>
+        {retentionMutation.isError && (
+          <p className="text-sm text-red-400 mt-2">Failed to update retention settings.</p>
+        )}
       </div>
 
       {/* Custom Patterns */}
@@ -76,42 +162,106 @@ export default function SettingsPage() {
         <p className="text-sm text-slate-400 mb-3">
           Add custom regex patterns for detecting sensitive data in AI traffic.
         </p>
-        <div className="flex gap-2 mb-4">
+
+        {/* Add pattern form */}
+        <div className="grid grid-cols-[1fr_auto_1fr_auto] gap-2 mb-4">
           <input
             type="text"
-            value={newPattern}
-            onChange={(e) => setNewPattern(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addPattern()}
+            value={patternName}
+            onChange={(e) => setPatternName(e.target.value)}
+            placeholder="Pattern name"
+            className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+          />
+          <select
+            value={patternCategory}
+            onChange={(e) => setPatternCategory(e.target.value)}
+            className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+          >
+            {CATEGORIES.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+          <input
+            type="text"
+            value={patternRegex}
+            onChange={(e) => setPatternRegex(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddPattern()}
             placeholder="e.g. \b[A-Z]{2}\d{6,8}\b"
-            className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-indigo-500"
+            className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-indigo-500"
           />
           <button
-            onClick={addPattern}
-            className="flex items-center gap-1 px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+            onClick={handleAddPattern}
+            disabled={createMutation.isPending}
+            className="flex items-center gap-1 px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg transition-colors"
           >
-            <Plus className="w-4 h-4" />
+            {createMutation.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Plus className="w-4 h-4" />
+            )}
             Add
           </button>
         </div>
-        <div className="space-y-2">
-          {patterns.length === 0 && (
-            <p className="text-sm text-slate-500">No custom patterns configured.</p>
-          )}
-          {patterns.map((p) => (
-            <div
-              key={p}
-              className="flex items-center justify-between bg-slate-900/50 border border-slate-700/50 rounded-lg px-3 py-2"
-            >
-              <code className="text-sm text-indigo-400 font-mono">{p}</code>
-              <button
-                onClick={() => removePattern(p)}
-                className="text-slate-400 hover:text-red-400 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
-        </div>
+
+        {createMutation.isError && (
+          <p className="text-sm text-red-400 mb-3">Failed to create pattern.</p>
+        )}
+
+        {/* Patterns list */}
+        {patternsLoading ? (
+          <div className="flex items-center gap-2 text-sm text-slate-400">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Loading patterns...
+          </div>
+        ) : patterns.length === 0 ? (
+          <p className="text-sm text-slate-500">No custom patterns configured.</p>
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-slate-700/50">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-900/50 text-slate-400">
+                  <th className="text-left px-3 py-2 font-medium">Name</th>
+                  <th className="text-left px-3 py-2 font-medium">Category</th>
+                  <th className="text-left px-3 py-2 font-medium">Pattern</th>
+                  <th className="w-10 px-3 py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {patterns.map((p) => (
+                  <tr
+                    key={p.id}
+                    className="border-t border-slate-700/50 hover:bg-slate-800/40"
+                  >
+                    <td className="px-3 py-2 text-white">{p.name}</td>
+                    <td className="px-3 py-2">
+                      <span className="inline-block px-2 py-0.5 text-xs rounded-full bg-indigo-600/20 text-indigo-300">
+                        {p.category}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <code className="text-indigo-400 font-mono text-xs">{p.pattern}</code>
+                    </td>
+                    <td className="px-3 py-2">
+                      <button
+                        onClick={() => deleteMutation.mutate(p.id)}
+                        disabled={deleteMutation.isPending}
+                        className="text-slate-400 hover:text-red-400 transition-colors disabled:opacity-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {deleteMutation.isError && (
+          <p className="text-sm text-red-400 mt-2">Failed to delete pattern.</p>
+        )}
       </div>
 
       {/* CA Certificate */}

@@ -121,7 +121,24 @@ async def top_users(db: AsyncSession = Depends(get_db)):
 @router.get("/top-categories", response_model=List[Dict])
 async def top_categories(db: AsyncSession = Depends(get_db)):
     """Top 5 sensitive data categories from the last 24h."""
-    return []
+    from collections import Counter
+
+    since = _last_24h()
+    result = await db.execute(
+        select(AuditLog.findings)
+        .where(AuditLog.timestamp >= since, AuditLog.findings.isnot(None))
+    )
+
+    counter: Counter = Counter()
+    for (findings,) in result.all():
+        if isinstance(findings, dict):
+            cats = findings.get("categories", [])
+            if isinstance(cats, list):
+                for cat in cats:
+                    counter[cat] += 1
+
+    top5 = counter.most_common(5)
+    return [{"category": cat, "count": count} for cat, count in top5]
 
 
 @router.get("/by-provider", response_model=List[ProviderStat])
