@@ -7,21 +7,19 @@ const api = axios.create({
   },
 })
 
-// --- Types ---
+// --- Types (aligned with actual API responses) ---
 
 export interface Stats {
   total_requests: number
   blocked: number
   anonymized: number
   allowed: number
-  total_requests_prev?: number
-  blocked_prev?: number
-  anonymized_prev?: number
-  allowed_prev?: number
+  top_users: { user: string; count: number }[]
+  top_categories: { category: string; count: number }[]
 }
 
 export interface TimelinePoint {
-  timestamp: string
+  hour: string
   total: number
   blocked: number
   anonymized: number
@@ -30,7 +28,7 @@ export interface TimelinePoint {
 
 export interface TopUser {
   user: string
-  request_count: number
+  count: number
 }
 
 export interface TopCategory {
@@ -41,11 +39,14 @@ export interface TopCategory {
 export interface LogEntry {
   id: string
   timestamp: string
-  user: string
+  user_identifier: string | null
+  source_ip: string | null
   ai_provider: string
-  action: string
-  findings_summary: string
-  details?: Record<string, unknown>
+  action_taken: string
+  findings: Record<string, unknown> | null
+  request_hash: string | null
+  response_code: number | null
+  processing_time_ms: number | null
 }
 
 export interface LogFilters {
@@ -63,25 +64,36 @@ export interface LogsResponse {
   total: number
   page: number
   page_size: number
+  pages: number
 }
 
 export interface Policy {
   id: string
   name: string
-  description: string
+  description: string | null
   action: string
-  ai_targets: string[]
-  finding_categories: string[]
+  ai_targets: string[] | null
+  finding_categories: string[] | null
   priority: number
   enabled: boolean
+  created_at: string
+  updated_at: string
 }
 
-export type PolicyCreate = Omit<Policy, 'id'>
+export interface PoliciesResponse {
+  items: Policy[]
+  total: number
+  page: number
+  page_size: number
+  pages: number
+}
+
+export type PolicyCreate = Omit<Policy, 'id' | 'created_at' | 'updated_at'>
 
 // --- Stats ---
 
 export async function getStats(): Promise<Stats> {
-  const { data } = await api.get('/stats')
+  const { data } = await api.get('/stats/overview')
   return data
 }
 
@@ -122,7 +134,7 @@ export async function exportLogs(filters: LogFilters = {}): Promise<Blob> {
 
 // --- Policies ---
 
-export async function getPolicies(): Promise<Policy[]> {
+export async function getPolicies(): Promise<PoliciesResponse> {
   const { data } = await api.get('/policies')
   return data
 }

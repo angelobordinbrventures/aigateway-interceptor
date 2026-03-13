@@ -5,7 +5,7 @@ import type { LogFilters, LogEntry } from '../api/client'
 import { Download, ChevronDown, ChevronUp } from 'lucide-react'
 import { clsx } from 'clsx'
 
-const AI_PROVIDERS = ['', 'openai', 'anthropic', 'google', 'mistral', 'cohere', 'meta']
+const AI_PROVIDERS = ['', 'openai', 'anthropic', 'google', 'mistral', 'cohere', 'groq', 'deepseek']
 const ACTIONS_FILTER = ['', 'BLOCKED', 'ANONYMIZED', 'ALLOWED', 'LOG_ONLY']
 
 export default function AuditLogs() {
@@ -19,7 +19,7 @@ export default function AuditLogs() {
 
   const logs = data?.items ?? []
   const total = data?.total ?? 0
-  const totalPages = Math.max(1, Math.ceil(total / (filters.page_size ?? 20)))
+  const totalPages = Math.max(1, data?.pages ?? 1)
 
   async function handleExport() {
     try {
@@ -43,6 +43,15 @@ export default function AuditLogs() {
       LOG_ONLY: 'bg-blue-500/10 text-blue-400',
     }
     return colors[action.toUpperCase()] ?? 'bg-slate-500/10 text-slate-400'
+  }
+
+  function findingsSummary(log: LogEntry): string {
+    if (!log.findings) return '-'
+    if (typeof log.findings === 'object') {
+      const cats = (log.findings as Record<string, unknown>).categories
+      if (Array.isArray(cats)) return cats.join(', ')
+    }
+    return JSON.stringify(log.findings).slice(0, 60)
   }
 
   return (
@@ -83,6 +92,7 @@ export default function AuditLogs() {
         <select
           value={filters.action ?? ''}
           onChange={(e) => setFilters({ ...filters, action: e.target.value || undefined, page: 1 })}
+          aria-label="Filtrar por ação"
           className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
         >
           <option value="">All Actions</option>
@@ -117,44 +127,42 @@ export default function AuditLogs() {
           </thead>
           <tbody>
             {logs.map((log: LogEntry) => (
-              <>
-                <tr
-                  key={log.id}
-                  onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
-                  className="border-b border-slate-700/30 hover:bg-slate-700/20 cursor-pointer"
-                >
-                  <td className="px-4 py-3 text-slate-400">
-                    {expandedId === log.id ? (
-                      <ChevronUp className="w-4 h-4" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4" />
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-slate-300 whitespace-nowrap">
-                    {new Date(log.timestamp).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3 text-white">{log.user}</td>
-                  <td className="px-4 py-3 text-slate-300">{log.ai_provider}</td>
-                  <td className="px-4 py-3">
-                    <span className={clsx('text-xs px-2 py-1 rounded-full font-medium', actionBadge(log.action))}>
-                      {log.action}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-slate-400 truncate max-w-[200px]">
-                    {log.findings_summary}
-                  </td>
-                </tr>
-                {expandedId === log.id && (
-                  <tr key={`${log.id}-detail`} className="border-b border-slate-700/30">
-                    <td colSpan={6} className="px-6 py-4 bg-slate-900/50">
-                      <pre className="text-xs text-slate-300 whitespace-pre-wrap overflow-x-auto">
-                        {JSON.stringify(log.details ?? log, null, 2)}
-                      </pre>
-                    </td>
-                  </tr>
-                )}
-              </>
+              <tr
+                key={log.id}
+                onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
+                className="border-b border-slate-700/30 hover:bg-slate-700/20 cursor-pointer"
+              >
+                <td className="px-4 py-3 text-slate-400">
+                  {expandedId === log.id ? (
+                    <ChevronUp className="w-4 h-4" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" />
+                  )}
+                </td>
+                <td className="px-4 py-3 text-slate-300 whitespace-nowrap">
+                  {new Date(log.timestamp).toLocaleString()}
+                </td>
+                <td className="px-4 py-3 text-white">{log.user_identifier ?? 'Unknown'}</td>
+                <td className="px-4 py-3 text-slate-300">{log.ai_provider}</td>
+                <td className="px-4 py-3">
+                  <span className={clsx('text-xs px-2 py-1 rounded-full font-medium', actionBadge(log.action_taken))}>
+                    {log.action_taken}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-slate-400 truncate max-w-[200px]">
+                  {findingsSummary(log)}
+                </td>
+              </tr>
             ))}
+            {expandedId && logs.find(l => l.id === expandedId) && (
+              <tr key={`${expandedId}-detail`} className="border-b border-slate-700/30">
+                <td colSpan={6} className="px-6 py-4 bg-slate-900/50">
+                  <pre className="text-xs text-slate-300 whitespace-pre-wrap overflow-x-auto">
+                    {JSON.stringify(logs.find(l => l.id === expandedId), null, 2)}
+                  </pre>
+                </td>
+              </tr>
+            )}
             {logs.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
@@ -180,7 +188,7 @@ export default function AuditLogs() {
             Previous
           </button>
           <button
-            disabled={filters.page === totalPages}
+            disabled={(filters.page ?? 1) >= totalPages}
             onClick={() => setFilters({ ...filters, page: (filters.page ?? 1) + 1 })}
             className="px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
           >

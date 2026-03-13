@@ -23,7 +23,17 @@ const FINDING_CATEGORIES = [
   'CUSTOM',
 ]
 
-const emptyForm: PolicyCreate = {
+interface PolicyForm {
+  name: string
+  description: string
+  action: string
+  ai_targets: string[]
+  finding_categories: string[]
+  priority: number
+  enabled: boolean
+}
+
+const emptyForm: PolicyForm = {
   name: '',
   description: '',
   action: 'BLOCK',
@@ -37,12 +47,13 @@ export default function PolicyEditor() {
   const queryClient = useQueryClient()
   const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState<PolicyCreate>(emptyForm)
+  const [form, setForm] = useState<PolicyForm>(emptyForm)
 
-  const { data: policies = [] } = useQuery({
+  const { data: policiesData } = useQuery({
     queryKey: ['policies'],
     queryFn: getPolicies,
   })
+  const policies = policiesData?.items ?? []
 
   const createMut = useMutation({
     mutationFn: (data: PolicyCreate) => createPolicy(data),
@@ -85,10 +96,10 @@ export default function PolicyEditor() {
   function openEdit(policy: Policy) {
     setForm({
       name: policy.name,
-      description: policy.description,
+      description: policy.description ?? '',
       action: policy.action,
-      ai_targets: policy.ai_targets,
-      finding_categories: policy.finding_categories,
+      ai_targets: policy.ai_targets ?? [],
+      finding_categories: policy.finding_categories ?? [],
       priority: policy.priority,
       enabled: policy.enabled,
     })

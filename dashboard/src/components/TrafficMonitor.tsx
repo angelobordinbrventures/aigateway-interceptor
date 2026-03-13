@@ -20,7 +20,7 @@ export default function TrafficMonitor() {
 
   const chartData = (timeline ?? []).map((p) => ({
     ...p,
-    time: new Date(p.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    time: new Date(p.hour).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
   }))
 
   return (

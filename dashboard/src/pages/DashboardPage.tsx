@@ -50,7 +50,7 @@ export default function DashboardPage() {
                   <span className="text-sm text-slate-300">{u.user}</span>
                 </div>
                 <span className="text-sm font-medium text-white">
-                  {u.request_count.toLocaleString()}
+                  {u.count.toLocaleString()}
                 </span>
               </div>
             ))}

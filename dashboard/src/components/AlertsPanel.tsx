@@ -47,19 +47,16 @@ export default function AlertsPanel() {
               <span
                 className={clsx(
                   'text-xs px-2 py-0.5 rounded-full border font-medium',
-                  actionColor(alert.action)
+                  actionColor(alert.action_taken)
                 )}
               >
-                {alert.action}
+                {alert.action_taken}
               </span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-300 truncate">{alert.user}</span>
+              <span className="text-slate-300 truncate">{alert.user_identifier ?? 'Unknown'}</span>
               <span className="text-slate-500 text-xs">{alert.ai_provider}</span>
             </div>
-            {alert.findings_summary && (
-              <p className="text-xs text-slate-500 truncate">{alert.findings_summary}</p>
-            )}
           </div>
         ))}
       </div>
