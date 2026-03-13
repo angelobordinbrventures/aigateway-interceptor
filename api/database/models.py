@@ -1,9 +1,9 @@
 import uuid
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
 
 from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, Text
-from sqlalchemy.types import JSON
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.types import JSON, TypeDecorator
 
 from api.database.connection import Base
 
@@ -12,15 +12,42 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _new_uuid() -> str:
-    return str(uuid.uuid4())
+def _new_uuid() -> uuid.UUID:
+    return uuid.uuid4()
+
+
+# Use a type that works with both PostgreSQL (native UUID) and SQLite (string)
+class FlexibleUUID(TypeDecorator):
+    """UUID type that works with both PostgreSQL and SQLite."""
+
+    impl = String(36)
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(PG_UUID(as_uuid=True))
+        return dialect.type_descriptor(String(36))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        if dialect.name == "postgresql":
+            return value if isinstance(value, uuid.UUID) else uuid.UUID(str(value))
+        return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        if isinstance(value, uuid.UUID):
+            return value
+        return uuid.UUID(str(value))
 
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 
-    id = Column(String(36), primary_key=True, default=_new_uuid)
-    timestamp = Column(DateTime, default=_utcnow, index=True)
+    id = Column(FlexibleUUID(), primary_key=True, default=_new_uuid)
+    timestamp = Column(DateTime(timezone=True), default=_utcnow, index=True)
     user_identifier = Column(String(255), nullable=True, index=True)
     source_ip = Column(String(45), nullable=True)
     ai_provider = Column(String(100), nullable=False, index=True)
@@ -34,7 +61,7 @@ class AuditLog(Base):
 class Policy(Base):
     __tablename__ = "policies"
 
-    id = Column(String(36), primary_key=True, default=_new_uuid)
+    id = Column(FlexibleUUID(), primary_key=True, default=_new_uuid)
     name = Column(String(255), unique=True, nullable=False)
     description = Column(Text, nullable=True)
     ai_targets = Column(JSON, nullable=True)
@@ -42,14 +69,14 @@ class Policy(Base):
     action = Column(String(50), nullable=False)
     priority = Column(Integer, default=0)
     enabled = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=_utcnow)
-    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+    updated_at = Column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
 
 class SensitivePattern(Base):
     __tablename__ = "sensitive_patterns"
 
-    id = Column(String(36), primary_key=True, default=_new_uuid)
+    id = Column(FlexibleUUID(), primary_key=True, default=_new_uuid)
     name = Column(String(255), unique=True, nullable=False)
     category = Column(String(100), nullable=False)
     pattern = Column(Text, nullable=False)
@@ -61,10 +88,10 @@ class SensitivePattern(Base):
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(String(36), primary_key=True, default=_new_uuid)
+    id = Column(FlexibleUUID(), primary_key=True, default=_new_uuid)
     username = Column(String(100), unique=True, nullable=False)
     email = Column(String(255), unique=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     role = Column(String(20), default="viewer")
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=_utcnow)
+    created_at = Column(DateTime(timezone=True), default=_utcnow)

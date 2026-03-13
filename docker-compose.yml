@@ -29,7 +29,6 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - AI_PROVIDER_DOMAINS=${AI_PROVIDER_DOMAINS:-api.openai.com,api.anthropic.com,generativelanguage.googleapis.com,api.cohere.ai,api.mistral.ai}
     volumes:
-      - ./proxy:/app
       - ./infrastructure/certs:/certs:ro
     depends_on:
       postgres:
@@ -51,13 +50,11 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - SECRET_KEY=${SECRET_KEY:-change-this-to-a-random-secret-key}
-      - DATABASE_URL=${DATABASE_URL:-postgresql://aigateway:secret@postgres:5432/aigateway}
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - AIGATEWAY_SECRET_KEY=${SECRET_KEY:-change-this-to-a-random-secret-key}
+      - AIGATEWAY_DATABASE_URL=postgresql+asyncpg://aigateway:secret@postgres:5432/aigateway
+      - AIGATEWAY_REDIS_URL=redis://redis:6379
+      - AIGATEWAY_CORS_ORIGINS=["http://localhost:3000","http://localhost","http://localhost:80"]
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost}
-    volumes:
-      - ./api:/app
     depends_on:
       postgres:
         condition: service_healthy
@@ -92,7 +89,7 @@ services:
     image: postgres:16-alpine
     container_name: aigateway-postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-aigateway}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secret}
@@ -116,7 +113,7 @@ services:
     image: redis:7-alpine
     container_name: aigateway-redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data

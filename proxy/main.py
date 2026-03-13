@@ -14,9 +14,9 @@ from typing import Optional
 
 from mitmproxy import http
 
-from proxy.dlp.anonymizer import Anonymizer
-from proxy.dlp.detector import DLPDetector
-from proxy.policies.engine import PolicyEngine
+from dlp.anonymizer import Anonymizer
+from dlp.detector import DLPDetector
+from policies.engine import PolicyEngine
 
 logger = logging.getLogger(__name__)
 

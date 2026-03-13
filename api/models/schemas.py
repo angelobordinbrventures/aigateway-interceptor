@@ -1,6 +1,6 @@
-import uuid
 from datetime import datetime
-from typing import Dict, Generic, List, Optional, TypeVar
+from typing import Any, Dict, Generic, List, Optional, TypeVar
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -46,7 +46,7 @@ class PolicyUpdate(BaseModel):
 class PolicyResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: str
+    id: UUID
     name: str
     description: Optional[str] = None
     ai_targets: Optional[List[str]] = None
@@ -76,7 +76,7 @@ class AuditLogCreate(BaseModel):
 class AuditLogResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: str
+    id: UUID
     timestamp: datetime
     user_identifier: Optional[str] = None
     source_ip: Optional[str] = None
@@ -112,7 +112,7 @@ class PatternCreate(BaseModel):
 class PatternResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: str
+    id: UUID
     name: str
     category: str
     pattern: str
@@ -135,7 +135,7 @@ class UserCreate(BaseModel):
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: str
+    id: UUID
     username: str
     email: str
     role: str

@@ -9,7 +9,7 @@ from typing import Optional
 
 import yaml
 
-from proxy.dlp.detector import Finding
+from dlp.detector import Finding
 
 logger = logging.getLogger(__name__)
 
