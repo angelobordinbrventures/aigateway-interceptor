@@ -1,0 +1,203 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Lint - Code quality checks
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint (Ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Lint proxy
+        run: ruff check proxy/
+
+      - name: Lint API
+        run: ruff check api/
+
+      - name: Check formatting
+        run: |
+          ruff format --check proxy/
+          ruff format --check api/
+
+  # ---------------------------------------------------------------------------
+  # Proxy Tests
+  # ---------------------------------------------------------------------------
+  test-proxy:
+    name: Test Proxy
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: aigateway
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: aigateway_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aigateway"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          cd proxy
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio
+
+      - name: Run proxy tests
+        env:
+          DATABASE_URL: postgresql://aigateway:secret@localhost:5432/aigateway_test
+          REDIS_URL: redis://localhost:6379
+          DLP_MODE: anonymize
+        run: |
+          cd proxy
+          pytest tests/ -v --tb=short --cov=. --cov-report=xml
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: proxy-coverage
+          path: proxy/coverage.xml
+
+  # ---------------------------------------------------------------------------
+  # API Tests
+  # ---------------------------------------------------------------------------
+  test-api:
+    name: Test API
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: aigateway
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: aigateway_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U aigateway"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          cd api
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-asyncio httpx
+
+      - name: Run API tests
+        env:
+          SECRET_KEY: test-secret-key-for-ci
+          DATABASE_URL: postgresql://aigateway:secret@localhost:5432/aigateway_test
+          REDIS_URL: redis://localhost:6379
+        run: |
+          cd api
+          pytest tests/ -v --tb=short --cov=. --cov-report=xml
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-coverage
+          path: api/coverage.xml
+
+  # ---------------------------------------------------------------------------
+  # Docker Build - Verify all images build successfully
+  # ---------------------------------------------------------------------------
+  build-docker:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [test-proxy, test-api]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build proxy image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./proxy
+          push: false
+          tags: aigateway-proxy:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build API image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./api
+          push: false
+          tags: aigateway-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build dashboard image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./dashboard
+          push: false
+          tags: aigateway-dashboard:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

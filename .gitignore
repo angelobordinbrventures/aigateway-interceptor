@@ -1,0 +1,83 @@
+# =============================================================================
+# AIGateway Interceptor - Git Ignore
+# =============================================================================
+
+# --- Environment ---
+.env
+.env.local
+.env.*.local
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+*.whl
+pip-log.txt
+pip-delete-this-directory.txt
+.venv/
+venv/
+env/
+.python-version
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+.tox/
+.nox/
+
+# --- Node.js ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnp
+.pnp.js
+
+# --- Dashboard build ---
+dashboard/dist/
+dashboard/build/
+
+# --- Docker ---
+docker-compose.override.yml
+
+# --- Certificates (generated, not committed) ---
+infrastructure/certs/*.key
+infrastructure/certs/*.crt
+infrastructure/certs/*.csr
+infrastructure/certs/*.srl
+infrastructure/certs/*.ext
+infrastructure/certs/*.pem
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Database ---
+*.sqlite3
+*.db
+
+# --- Misc ---
+tmp/
+temp/
+.cache/

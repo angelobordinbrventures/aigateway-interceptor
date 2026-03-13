@@ -1,0 +1,44 @@
+policies:
+  - name: block_credentials
+    description: "Block requests containing API keys or passwords"
+    priority: 100
+    categories:
+      - API_KEY
+      - PASSWORD
+    action: BLOCK
+    enabled: true
+
+  - name: block_financial
+    description: "Block requests containing credit card numbers"
+    priority: 90
+    categories:
+      - CREDIT_CARD
+    action: BLOCK
+    enabled: true
+
+  - name: anonymize_pii
+    description: "Anonymize Brazilian PII data before forwarding"
+    priority: 80
+    categories:
+      - CPF
+      - CNPJ
+      - RG
+      - EMAIL
+      - PHONE_BR
+    action: ANONYMIZE
+    enabled: true
+
+  - name: log_jwt
+    description: "Log JWT token usage"
+    priority: 70
+    categories:
+      - JWT
+    action: LOG_ONLY
+    enabled: true
+
+  - name: default_allow
+    description: "Allow all other traffic"
+    priority: 0
+    categories: []
+    action: ALLOW
+    enabled: true

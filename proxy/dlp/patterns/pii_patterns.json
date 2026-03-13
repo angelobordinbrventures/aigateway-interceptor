@@ -1,0 +1,81 @@
+{
+  "patterns": [
+    {
+      "name": "cpf",
+      "category": "CPF",
+      "regex": "\\b\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}\\b",
+      "severity": "HIGH",
+      "description": "Brazilian CPF (Cadastro de Pessoas Fisicas)"
+    },
+    {
+      "name": "cnpj",
+      "category": "CNPJ",
+      "regex": "\\b\\d{2}\\.\\d{3}\\.\\d{3}/\\d{4}-\\d{2}\\b",
+      "severity": "HIGH",
+      "description": "Brazilian CNPJ (Cadastro Nacional da Pessoa Juridica)"
+    },
+    {
+      "name": "rg",
+      "category": "RG",
+      "regex": "\\b\\d{2}\\.\\d{3}\\.\\d{3}-[0-9Xx]\\b",
+      "severity": "HIGH",
+      "description": "Brazilian RG (Registro Geral)"
+    },
+    {
+      "name": "email",
+      "category": "EMAIL",
+      "regex": "\\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}\\b",
+      "severity": "MEDIUM",
+      "description": "Email address"
+    },
+    {
+      "name": "phone_br",
+      "category": "PHONE_BR",
+      "regex": "(?:\\+55\\s?)?\\(?\\d{2}\\)?\\s?9?\\d{4}[\\s-]?\\d{4}\\b",
+      "severity": "MEDIUM",
+      "description": "Brazilian phone number"
+    },
+    {
+      "name": "credit_card",
+      "category": "CREDIT_CARD",
+      "regex": "\\b(?:4\\d{3}[\\s-]?\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}|5[1-5]\\d{2}[\\s-]?\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}|3[47]\\d{2}[\\s-]?\\d{6}[\\s-]?\\d{5})\\b",
+      "severity": "CRITICAL",
+      "description": "Credit card number (Visa, Mastercard, Amex)"
+    },
+    {
+      "name": "api_key_openai",
+      "category": "API_KEY",
+      "regex": "\\bsk-(?:proj-)?[a-zA-Z0-9_-]{20,}\\b",
+      "severity": "CRITICAL",
+      "description": "OpenAI API key"
+    },
+    {
+      "name": "api_key_aws",
+      "category": "API_KEY",
+      "regex": "\\bAKIA[0-9A-Z]{16}\\b",
+      "severity": "CRITICAL",
+      "description": "AWS Access Key ID"
+    },
+    {
+      "name": "api_key_github",
+      "category": "API_KEY",
+      "regex": "\\bghp_[a-zA-Z0-9]{36}\\b",
+      "severity": "CRITICAL",
+      "description": "GitHub personal access token"
+    },
+    {
+      "name": "password_pattern",
+      "category": "PASSWORD",
+      "regex": "(?i)(?:password|passwd|pwd|senha)\\s*[:=]\\s*[\"']?\\S{4,}[\"']?",
+      "severity": "CRITICAL",
+      "description": "Password in common assignment format"
+    },
+    {
+      "name": "jwt_token",
+      "category": "JWT",
+      "regex": "\\beyJ[a-zA-Z0-9_-]{10,}\\.eyJ[a-zA-Z0-9_-]{10,}\\.[a-zA-Z0-9_-]{10,}\\b",
+      "severity": "HIGH",
+      "description": "JSON Web Token"
+    }
+  ]
+}

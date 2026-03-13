@@ -1,0 +1,133 @@
+# =============================================================================
+# AIGateway Interceptor - Docker Compose Production Override
+# =============================================================================
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Key differences from development:
+#   - No exposed ports except 80/443 on nginx
+#   - Production environment variables
+#   - Resource limits on all services
+#   - Always-restart policies
+#   - No volume mounts for source code
+# =============================================================================
+
+version: "3.9"
+
+services:
+  # ---------------------------------------------------------------------------
+  # Proxy - no exposed ports in production
+  # ---------------------------------------------------------------------------
+  proxy:
+    ports: []
+    volumes:
+      - ./infrastructure/certs:/certs:ro
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - DLP_MODE=${DLP_MODE:-anonymize}
+      - LOG_LEVEL=WARNING
+      - AI_PROVIDER_DOMAINS=${AI_PROVIDER_DOMAINS}
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1024M
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+    restart: always
+
+  # ---------------------------------------------------------------------------
+  # API - no exposed ports in production
+  # ---------------------------------------------------------------------------
+  api:
+    ports: []
+    volumes: []
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - LOG_LEVEL=WARNING
+      - CORS_ORIGINS=${CORS_ORIGINS}
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+    restart: always
+
+  # ---------------------------------------------------------------------------
+  # Dashboard - no exposed ports in production
+  # ---------------------------------------------------------------------------
+  dashboard:
+    ports: []
+    environment:
+      - VITE_API_URL=${VITE_API_URL}
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+    restart: always
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL - no exposed ports in production
+  # ---------------------------------------------------------------------------
+  postgres:
+    ports: []
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1024M
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+    restart: always
+
+  # ---------------------------------------------------------------------------
+  # Redis - no exposed ports in production
+  # ---------------------------------------------------------------------------
+  redis:
+    ports: []
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD:-}
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+    restart: always
+
+  # ---------------------------------------------------------------------------
+  # Nginx - only service with exposed ports
+  # ---------------------------------------------------------------------------
+  nginx:
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infrastructure/certs:/etc/nginx/certs:ro
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+        reservations:
+          cpus: "0.25"
+          memory: 64M
+    restart: always

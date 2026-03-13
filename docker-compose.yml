@@ -1,0 +1,158 @@
+# =============================================================================
+# AIGateway Interceptor - Docker Compose (Development)
+# =============================================================================
+# Full stack: proxy, api, dashboard, postgres, redis, nginx
+#
+# Usage:
+#   docker compose up --build -d
+#   docker compose logs -f
+#   docker compose down
+# =============================================================================
+
+version: "3.9"
+
+services:
+  # ---------------------------------------------------------------------------
+  # mitmproxy - Transparent AI traffic interception
+  # ---------------------------------------------------------------------------
+  proxy:
+    build:
+      context: ./proxy
+      dockerfile: Dockerfile
+    container_name: aigateway-proxy
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://aigateway:secret@postgres:5432/aigateway}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - DLP_MODE=${DLP_MODE:-anonymize}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - AI_PROVIDER_DOMAINS=${AI_PROVIDER_DOMAINS:-api.openai.com,api.anthropic.com,generativelanguage.googleapis.com,api.cohere.ai,api.mistral.ai}
+    volumes:
+      - ./proxy:/app
+      - ./infrastructure/certs:/certs:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aigateway
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # FastAPI - REST API backend
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: aigateway-api
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-change-this-to-a-random-secret-key}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://aigateway:secret@postgres:5432/aigateway}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost}
+    volumes:
+      - ./api:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - aigateway
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # React Dashboard - Web UI
+  # ---------------------------------------------------------------------------
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: aigateway-dashboard
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
+    depends_on:
+      - api
+    networks:
+      - aigateway
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL - Primary datastore
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: aigateway-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-aigateway}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secret}
+      - POSTGRES_DB=${POSTGRES_DB:-aigateway}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aigateway}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - aigateway
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Redis - Cache and pub/sub for real-time events
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: aigateway-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - aigateway
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Nginx - Reverse proxy / gateway
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: aigateway-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+      - dashboard
+      - proxy
+    networks:
+      - aigateway
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  aigateway:
+    driver: bridge
